@@ -1,4 +1,3 @@
-// Register component
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,26 +8,16 @@ export default function Register() {
     email: '',
     password: '',
     isCreator: false,
-    organizationUrl: ''
   });
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    if (name === 'organizationUrl') {
-      const urlParts = value.split('/');
-      const uniquePart = urlParts[urlParts.length - 1];
-      setFormData(prevState => ({
-        ...prevState,
-        [name]: uniquePart
-      }));
-    } else {
-      setFormData(prevState => ({
-        ...prevState,
-        [name]: type === 'checkbox' ? checked : value
-      }));
-    }
+    setFormData(prevState => ({
+      ...prevState,
+      [name]: type === 'checkbox' ? checked : value
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -45,7 +34,7 @@ export default function Register() {
       if (response.ok) {
         const data = await response.json();
         localStorage.setItem('token', data.token);
-        router.push('/login');
+        router.push('/dashboard');
       } else {
         const errorData = await response.json();
         alert(errorData.msg || 'Registration failed. Please try again.');
@@ -59,7 +48,7 @@ export default function Register() {
   };
 
   return (
-    <form className="space-y-6" onSubmit={handleSubmit}>
+    <form className="space-y-6 text-gray-950" onSubmit={handleSubmit}>
       <div>
         <label htmlFor="username" className="block text-sm font-medium text-gray-700">
           Username
@@ -120,22 +109,6 @@ export default function Register() {
           Register as a creator
         </label>
       </div>
-      {!formData.isCreator && (
-        <div>
-          <label htmlFor="organization-url" className="block text-sm font-medium text-gray-700">
-            Organization URL
-          </label>
-          <input
-            id="organization-url"
-            name="organizationUrl"
-            type="text"
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
-            placeholder="Organization URL (if joining an existing organization)"
-            value={formData.organizationUrl}
-            onChange={handleChange}
-          />
-        </div>
-      )}
       <div>
         <button
           type="submit"

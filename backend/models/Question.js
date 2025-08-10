@@ -22,6 +22,10 @@ const questionSchema = new mongoose.Schema({
   lastMessageTime:{
     type:Date,
     default:null,
+  },
+  isAnonymous:{
+    type: Boolean,
+    default: false
   }
 });
 

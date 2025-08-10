@@ -18,8 +18,10 @@ export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 bg-gradient-to-br from-purple-600 to-blue-500">
       <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
-        <h1 className="text-4xl font-bold mb-8 text-center text-gray-800">Login</h1>
-        
+        <h1 className="text-4xl font-bold mb-8 text-center text-gray-800">
+          {isLoginView ? 'Login' : 'Register'}
+        </h1>
+
         <div className={`transition-opacity duration-300 ${isAnimating ? 'opacity-0' : 'opacity-100'}`}>
           {isLoginView ? <Login /> : <Register />}
         </div>
