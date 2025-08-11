@@ -13,10 +13,24 @@ const questionRoutes = require('./routes/questions');
 
 const app = express();
 
-app.use(cors({
-  origin: 'http://localhost:3000', 
-  credentials: true,
-}));
+const allowedOrigins = [
+  "http://localhost:3000", // Local frontend
+  "https://your-frontend-domain.com" // When deployed
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true, 
+  })
+);
+
 app.use(express.json());
 
 mongoose.connect(process.env.MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true })
