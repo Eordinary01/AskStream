@@ -5,11 +5,16 @@ const User = require("../models/User");
 
 const router = express.Router();
 
+// Helper to send consistent JSON errors
+const sendError = (res, statusCode, message) => {
+  return res.status(statusCode).json({ message });
+};
+
 router.post("/", auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id);
     if (!user.isCreator) {
-      return res.status(403).send({ message: "Only Creator can create organizations" });
+      return sendError(res, 403, "Only Creator can create organizations");
     }
 
     const { name, cooldownTime, oneQuestionPerUser } = req.body;
@@ -31,86 +36,82 @@ router.post("/", auth, async (req, res) => {
     res.json(org);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Server Error");
+    res.status(500).json({ message: "Server Error" });
   }
 });
 
-// In your organizations router file
-
-router.post('/join', auth, async (req, res) => {
+router.post("/join", auth, async (req, res) => {
   try {
     const { uniqueUrl } = req.body;
-    if (!uniqueUrl) return res.status(400).json({ msg: 'Organization URL is required' });
+    if (!uniqueUrl) return sendError(res, 400, "Organization URL is required");
 
     const userId = req.user.id;
     const user = await User.findById(userId);
-    if (!user) return res.status(404).json({ msg: 'User not found' });
+    if (!user) return sendError(res, 404, "User not found");
 
     const org = await Organization.findOne({ uniqueUrl });
-    if (!org) return res.status(404).json({ msg: 'Organization not found' });
+    if (!org) return sendError(res, 404, "Organization not found");
 
-    // Check if user already member
     if (org.members.includes(userId)) {
-      return res.status(400).json({ msg: 'User already a member of this organization' });
+      return sendError(res, 400, "User already a member of this organization");
     }
 
     // Add user to org's members
     org.members.push(userId);
     await org.save();
 
-    // Optionally add org to user's organizations (if tracked)
+    // Add org to user's organizations, if not present
     if (!user.organizations.includes(org._id)) {
       user.organizations.push(org._id);
       await user.save();
     }
 
-    res.json({ msg: 'Joined organization successfully', organization: org });
-
+    res.json({ message: "Joined organization successfully", organization: org });
   } catch (error) {
     console.error(error);
-    res.status(500).send('Server error');
+    res.status(500).json({ message: "Server Error" });
   }
 });
 
+router.get("/my", auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).populate("organizations");
+    if (!user) return sendError(res, 404, "User not found");
+    res.json(user.organizations);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
 
-router.get('/my', auth, async (req, res) => {
-    try {
-      const user = await User.findById(req.user.id).populate('organizations');
-      res.json(user.organizations);
-    } catch (err) {
-      console.error(err.message);
-      res.status(500).send('Server Error');
-    }
-  });
-  
-  router.get('/:url', async (req, res) => {
-    try {
-      const org = await Organization.findOne({ uniqueUrl: req.params.url });
-      if (!org) {
-        return res.status(404).json({ msg: 'Organization not found' });
-      }
-      res.json(org);
-    } catch (err) {
-      console.error(err.message);
-      res.status(500).send('Server Error');
-    }
-  });
-  router.patch('/:id/toggle-messages',auth,async(req,res)=>{
-    try {
-      const organization = await Organization.findById(req.params.id);
-      if (!organization) {
-        return res.status(404).json({ msg: 'Organization not found' });
-      }
-      if (organization.owner.toString() !== req.user.id) {
-        return res.status(403).json({ msg: 'Only the organization owner can toggle message permissions' });
-      }
-      organization.allowMessages = !organization.allowMessages;
-      await organization.save();
-      res.json(organization);
-    } catch (err) {
-      console.error(err.message);
-      res.status(500).send('Server Error');
-    }
-  });
+router.get("/:url", async (req, res) => {
+  try {
+    const org = await Organization.findOne({ uniqueUrl: req.params.url });
+    if (!org) return sendError(res, 404, "Organization not found");
+    res.json(org);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
 
-  module.exports = router;
+router.patch("/:id/toggle-messages", auth, async (req, res) => {
+  try {
+    const organization = await Organization.findById(req.params.id);
+    if (!organization) return sendError(res, 404, "Organization not found");
+
+    if (organization.owner.toString() !== req.user.id) {
+      return sendError(res, 403, "Only the organization owner can toggle message permissions");
+    }
+
+    organization.allowMessages = !organization.allowMessages;
+    await organization.save();
+
+    res.json(organization);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ message: "Server Error" });
+  }
+});
+
+module.exports = router;
