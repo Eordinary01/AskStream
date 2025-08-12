@@ -30,7 +30,7 @@ export default function Dashboard() {
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
-      router.push("/login");
+      router.push("/");
     } else {
       fetchUserData(token);
       fetchOrganizations(token);
@@ -61,7 +61,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Error fetching user data:", error);
       localStorage.removeItem("token");
-      router.push("/login");
+      router.push("/");
     }
   };
 
@@ -149,7 +149,7 @@ export default function Dashboard() {
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        router.push("/login");
+        router.push("/");
         return;
       }
 

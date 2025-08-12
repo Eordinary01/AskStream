@@ -1,10 +1,13 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Header from '@/app/components/Header';
-import { MessageSquare, Lock, Unlock, Send, Loader2 } from 'lucide-react';
+import { MessageSquare, Lock, Unlock, Loader2 } from 'lucide-react';
 
-export default function OrganizationPage({ params }) {
+export default function OrganizationPage() {
+  const params = useParams();
+  const orgUrl = params?.url; 
+
   const [organization, setOrganization] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [user, setUser] = useState(null);
@@ -17,7 +20,10 @@ export default function OrganizationPage({ params }) {
   const [responseMessage, setResponseMessage] = useState('');
   const router = useRouter();
 
+  
   useEffect(() => {
+    if (!orgUrl) return;
+
     if (!user) {
       fetchUserData();
     }
@@ -25,7 +31,7 @@ export default function OrganizationPage({ params }) {
       fetchOrganization();
     }
     fetchQuestions();
-  }, [user, organization]);
+  }, [orgUrl]);
 
   useEffect(() => {
     if (organization) {
@@ -47,7 +53,7 @@ export default function OrganizationPage({ params }) {
       return;
     }
     try {
-      const res = await fetch(`${process.env.PUBLIC_API_URL}/api/auth/user`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/user`, {
         headers: { 'x-auth-token': token }
       });
       if (!res.ok) throw new Error('Failed fetching user');
@@ -61,7 +67,7 @@ export default function OrganizationPage({ params }) {
 
   const fetchOrganization = async () => {
     try {
-      const res = await fetch(`${process.env.PUBLIC_API_URL}/api/organizations/${params.url}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/organizations/${orgUrl}`);
       if (!res.ok) throw new Error('Failed fetching organization');
       const data = await res.json();
       setOrganization(data);
@@ -72,7 +78,7 @@ export default function OrganizationPage({ params }) {
 
   const fetchQuestions = async () => {
     try {
-      const res = await fetch(`${process.env.PUBLIC_API_URL}/api/questions/${params.url}`);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/questions/${orgUrl}`);
       if (!res.ok) throw new Error('Failed fetching questions');
       const data = await res.json();
       setQuestions(data);
@@ -103,7 +109,7 @@ export default function OrganizationPage({ params }) {
       return;
     }
     try {
-      const res = await fetch(`${process.env.PUBLIC_API_URL}/api/questions`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/questions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,8 +125,10 @@ export default function OrganizationPage({ params }) {
       if (res.ok) {
         const newQ = {
           ...data,
-          user: data.isAnonymous ? { username: 'Anonymous' } : { username: user.username, _id: user._id }
-        }
+          user: data.isAnonymous
+            ? { username: 'Anonymous' }
+            : { username: user.username, _id: user._id }
+        };
         setQuestions(qs => [newQ, ...qs]);
         setQuestion('');
         setResponseMessage('Question submitted!');
@@ -145,10 +153,13 @@ export default function OrganizationPage({ params }) {
     const token = localStorage.getItem('token');
     if (!token) return router.push('/');
     try {
-      const res = await fetch(`${process.env.PUBLIC_API_URL}/api/organizations/${organization._id}/toggle-messages`, {
-        method: 'PATCH',
-        headers: { 'x-auth-token': token }
-      });
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/organizations/${organization._id}/toggle-messages`,
+        {
+          method: 'PATCH',
+          headers: { 'x-auth-token': token }
+        }
+      );
       if (!res.ok) throw new Error();
       const data = await res.json();
       setAllowMessages(data.allowMessages);
@@ -174,13 +185,17 @@ export default function OrganizationPage({ params }) {
       <main className="container max-w-5xl mx-auto px-4 py-8">
         <div className="space-y-8">
           <header className="bg-white rounded-2xl shadow-xl border p-8 flex justify-between items-center">
-            <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-blue-400 text-transparent bg-clip-text font-bold">{organization.name}</h1>
+            <h1 className="text-4xl bg-gradient-to-r from-blue-600 to-blue-400 text-transparent bg-clip-text font-bold">
+              {organization.name}
+            </h1>
             {isCreator && (
               <button
                 onClick={togglePermissions}
                 className={`inline-flex items-center gap-2 px-6 py-3 font-medium rounded-xl transition duration-300 ${allowMessages ? 'bg-red-50 text-red-600 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}
               >
-                {allowMessages ? <><Lock className="w-5 h-5" /> Disable Messages</> : <><Unlock className="w-5 h-5" /> Enable Messages</>}
+                {allowMessages
+                  ? <><Lock className="w-5 h-5" /> Disable Messages</>
+                  : <><Unlock className="w-5 h-5" /> Enable Messages</>}
               </button>
             )}
           </header>
@@ -198,7 +213,7 @@ export default function OrganizationPage({ params }) {
               <ul className="space-y-4">
                 {questions.map(q => (
                   <li key={q._id} className="group rounded-xl bg-gray-50 p-6 transition hover:bg-blue-50">
-                    <p className="text-lg font-normal group-hover:text-blue-700">{q.content}</p>
+                    <p className="text-lg font-normal text-gray-950 ">{q.content}</p>
                     <div className="mt-3 flex items-center gap-2">
                       <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600 font-medium">
                         {(q.user?.username?.[0] ?? 'A').toUpperCase()}

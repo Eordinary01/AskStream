@@ -2,7 +2,7 @@
   "version": 2,
   "rewrites": [
     {
-      "source": "/external-api/(.*)",
+      "source": "/api/(.*)",
       "destination": "https://ask-streambackend.vercel.app/api/$1"
     }
   ]
