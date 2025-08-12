@@ -15,7 +15,7 @@ const app = express();
 
 const allowedOrigins = [
   "http://localhost:3000", // Local frontend
-  "https://your-frontend-domain.com" // When deployed
+  "https://ask-streamfrontend.vercel.app/" // When deployed
 ];
 
 app.use(
