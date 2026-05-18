@@ -1,123 +1,142 @@
-const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
+// routes/auth.js
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 const auth = require('../middleware/auth');
-const Organization = require("../models/Organization");
 
 const router = express.Router();
 
-router.post("/register", async (req, res) => {
+// Register user
+
+router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, isCreator, organizationUrl } = req.body;
-
-    let user = await User.findOne({ email });
-
+    const { username, email, password, isCreator } = req.body;
+    
+    // Check if user exists
+    let user = await User.findOne({ $or: [{ email }, { username }] });
     if (user) {
-      return res.status(400).json({ message: "User Already Exists" });
+      return res.status(400).json({ msg: 'User already exists' });
     }
-
-    user = new User({ username, email, password, isCreator });
-
+    
+    // Check for admin creation from env
+    let role = 'user';
+    let creatorStatus = isCreator || false;
+    
+    if (username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD) {
+      role = 'admin';
+      creatorStatus = true;
+    } else if (isCreator) {
+      role = 'creator';  // Set role to creator if isCreator is true
+      creatorStatus = true;
+    }
+    
+    // Create new user
+    user = new User({
+      username,
+      email,
+      password,
+      isCreator: creatorStatus,
+      role: role,  // This will be 'creator' for creators, 'user' for regular users
+    });
+    
     // Hash password
     const salt = await bcrypt.genSalt(10);
     user.password = await bcrypt.hash(password, salt);
-
-    // If user is joining organization, link accordingly
-    if (!isCreator && organizationUrl) {
-      const trimmedUrl = organizationUrl.trim().toLowerCase();
-      const organization = await Organization.findOne({
-        uniqueUrl: { $regex: new RegExp(`^${trimmedUrl}$`, 'i') }
-      });
-
-      if (!organization) {
-        return res.status(400).json({ message: "Invalid organization URL" });
-      }
-      user.organizations.push(organization._id);
-      organization.members.push(user._id);
-      await organization.save();
-    }
-
+    
     await user.save();
-
-    // Create JWT payload and sign token
-    const payload = { user: { id: user.id } };
-
+    
+    // Create JWT
+    const payload = {
+      user: {
+        id: user.id,
+      },
+    };
+    
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: '3600' }, // 1 hour expiry, consider refresh tokens for longer sessions
+      { expiresIn: '7d' },
       (err, token) => {
         if (err) throw err;
-        // Exclude password from user object before sending
-        const userResponse = {
-          id: user._id,
-          username: user.username,
-          email: user.email,
-          isCreator: user.isCreator,
-          organizations: user.organizations,
-          // any other fields to expose safely
-        };
-        res.json({ token, user: userResponse });
+        res.json({ 
+          token, 
+          user: { 
+            id: user.id, 
+            username: user.username, 
+            role: user.role,  // This will be 'creator'
+            isCreator: user.isCreator 
+          } 
+        });
       }
     );
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ msg: 'Server Error' });
   }
 });
 
-router.post("/login", async (req, res) => {
+// Login user
+router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
+    
+    // Check if user exists
     const user = await User.findOne({ email });
-
     if (!user) {
-      return res.status(400).json({ message: "User not found, please register" });
+      return res.status(400).json({ msg: 'Invalid credentials' });
     }
-
+    
+    // Check password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid Credentials" });
+      return res.status(400).json({ msg: 'Invalid credentials' });
     }
-
-    const payload = { user: { id: user.id } };
+    
+    // Create JWT
+    const payload = {
+      user: {
+        id: user.id,
+      },
+    };
+    
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: 3600 },
+      { expiresIn: '7d' },
       (err, token) => {
         if (err) throw err;
-        // Exclude password from user before sending
-        const userResponse = {
-          id: user._id,
-          username: user.username,
-          email: user.email,
-          isCreator: user.isCreator,
-          organizations: user.organizations,
-          // any other safe fields
-        };
-        res.json({ token, user: userResponse });
+        res.json({ token, user: { id: user.id, username: user.username, role: user.role, isCreator: user.isCreator } });
       }
     );
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ msg: 'Server Error' });
   }
 });
 
-router.get("/user", auth, async (req, res) => {
+// Get current user
+router.get('/user', auth, async (req, res) => {
   try {
-    // Explicitly exclude password field
-    const user = await User.findById(req.user.id).select("-password");
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
+    const user = await User.findById(req.user.id).select('-password');
     res.json(user);
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ message: "Server Error" });
+    res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
+// Validate token
+router.get('/validate', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(401).json({ msg: 'Invalid token' });
+    }
+    res.json({ valid: true, user });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).json({ msg: 'Server Error' });
   }
 });
 
